@@ -1,0 +1,9 @@
+bot_token: PASTE_BOT_TOKEN_HERE
+download_folder: downloads
+delay: 1500
+zoom_speed: 0.001
+authorized_users:
+    - 123456789
+font_size: 60
+show_remaining: True
+show_clock: True
