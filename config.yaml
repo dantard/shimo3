@@ -1,9 +1,9 @@
-bot_token: PASTE_BOT_TOKEN_HERE
-download_folder: downloads
+bot_token: 8572575850:AAFuIMVwHaC05BqCUFmvgPZtpf5diwcdjoY
+download_folder: /home/danilo/telegram_bot/downloads/aaa
 delay: 1500
 zoom_speed: 0.001
 authorized_users:
-    - 123456789
+    - 2082486102
+    - 6416982
 font_size: 60
 show_remaining: True
-show_clock: True
