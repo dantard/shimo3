@@ -1,9 +1,0 @@
-BOT_TOKEN: 8450041650:AAEBtPcpyDflXpMI8FLdL_C09bREpjfc4Xc
-download_folder: /home/danilo/telegram_bot/downloads/aaa
-delay: 1500
-zoom_speed: 0.001
-authorized_users:
-    - 2082486102
-    - 6416982
-font_size: 60
-show_remaining: True
