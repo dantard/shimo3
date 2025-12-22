@@ -5,20 +5,7 @@ import asyncio
 from telegram import Update, Bot
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
-# --- Configuration ---
-AUTHORIZED_USERS = [
-    2082486102,
-    6416982
-]
-
-SAVE_DIR = "downloads"
-
 # --- Global state ---
-media_groups = {}
-
-if not os.path.exists(SAVE_DIR):
-    os.makedirs(SAVE_DIR)
-
 
 def sanitize_filename(text: str) -> str:
     """Sanitizes text for use as a filename base."""
@@ -27,15 +14,24 @@ def sanitize_filename(text: str) -> str:
     return text[:50] if text else "unnamed_media"
 
 
-def run_bot(queue, token):
+def run_bot(queue, config):
     """Entry point."""
+    token = config.get("bot_token", None)
 
-    if BOT_TOKEN == "YOUR_TELEGRAM_BOT_TOKEN_HERE":
-        print("ERROR: Please update BOT_TOKEN")
+    if token is None:
+        print("ERROR: Please update bot_token in config.yaml")
         return
 
+    save_dir = config.get("save_dir", "downloads")
+    authorized_users = config.get("authorized_users", [])
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    media_groups = {}
+
     builder = Application.builder()
-    builder.token(BOT_TOKEN)
+    builder.token(token)
     builder.concurrent_updates(False)
 
     # Manually set job_queue to None before building
@@ -60,7 +56,7 @@ def run_bot(queue, token):
         for msg, file, safe_name_base in buf:
             try:
                 filename = f"{safe_name}_{msg.message_id}.jpg"
-                path = os.path.join(SAVE_DIR, filename)
+                path = os.path.join(save_dir, filename)
                 await file.download_to_drive(path)
                 saved_count += 1
                 print(f"Successfully downloaded: {filename}")
@@ -78,7 +74,7 @@ def run_bot(queue, token):
         """
         msg = update.message
         user_id = msg.from_user.id
-        if user_id not in AUTHORIZED_USERS:
+        if user_id not in authorized_users:
             await msg.reply_text(f"🛑 Access Denied. Your user ID ({user_id}) is not authorized to use this bot.")
             print(f"ACCESS DENIED: User ID {user_id} attempted to use the bot.")
             return
@@ -106,7 +102,7 @@ def run_bot(queue, token):
         """Handle incoming photos."""
         msg = update.message
 
-        if msg.from_user.id not in AUTHORIZED_USERS:
+        if msg.from_user.id not in authorized_users:
             await msg.reply_text(f"🛑 Access Denied. Your user ID ({msg.from_user.id}) is not authorized.")
             return
 
@@ -127,7 +123,7 @@ def run_bot(queue, token):
             media_groups[key]['messages'].append((msg, file, safe_name_base))
         else:
             filename = f"{safe_name_base}_{msg.message_id}.jpg"
-            path = os.path.join(SAVE_DIR, filename)
+            path = os.path.join(save_dir, filename)
 
             try:
                 await file.download_to_drive(path)

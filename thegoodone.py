@@ -5,6 +5,7 @@ import sys
 import time
 from multiprocessing import Queue
 from os import path
+import os
 from random import shuffle
 
 import yaml
@@ -27,19 +28,22 @@ class GrowingView(QGraphicsView):
         self.queue: Queue = q
         self.state = GrowingView.GROWING
         self.scale_factor = 0.1
-        self.delta = config.get("SCALE_DELTA", 0.01)
+        self.delta = config.get("scale_delta", 0.01)
         self.images = []
         self.timer = QTimer(self)
-        self.timer.setInterval(config.get("RATE", 30))
+        self.timer.setInterval(config.get("rate", 30))
         self.timer.timeout.connect(self.grow)
         self.landscape = True
+        self.save_dir = config.get("save_dir", "downloads")
         scene = QGraphicsScene()
         self.pixmap = scene.addPixmap(QPixmap())
+        self.fading_speed = config.get("fading_speed", 0.02)
+        self.show_remaining = config.get("show_remaining", False)
 
         # Create text item
-        self.text_item = QGraphicsTextItem("Your Text Here")
+        self.text_item = QGraphicsTextItem("")
         self.text_item.setDefaultTextColor(QColor(255, 255, 255))  # White color
-        font = QFont("Arial", config.get("FONT_SIZE", 32), QFont.Bold)
+        font = QFont("Arial", config.get("font_size", 32), QFont.Bold)
         self.text_item.setFont(font)
 
         self.clock_item = QGraphicsTextItem("")
@@ -50,7 +54,7 @@ class GrowingView(QGraphicsView):
         self.info_item.setDefaultTextColor(QColor(255, 255, 255))  # White color
         self.info_item.setFont(font)
 
-        self.duration = config.get("DURATION", 1)
+        self.duration = config.get("duration", 1)
 
         # This flag prevents the text from affecting the scene's bounding rectangle
         self.clock_item.setFlag(QGraphicsTextItem.ItemIgnoresTransformations)
@@ -118,7 +122,7 @@ class GrowingView(QGraphicsView):
 
         if self.state == GrowingView.CHOOSE:
             if len(self.images) == 0:
-                self.images = glob.glob("downloads/*.[jp][pn]g")
+                self.images = glob.glob(self.save_dir + os.sep + "*.[jp][pn]g")
                 if len (self.images) == 0:
                     time.sleep(1)
                     print("No images found, waiting...")
@@ -130,15 +134,16 @@ class GrowingView(QGraphicsView):
                     text = ""
                 else:
                     text = path.basename(filename).split("_")[0]
-
-                self.text_item.setPlainText(text + "\n" + len(self.images).__str__())
+                if self.show_remaining:
+                    text + "\n" + len(self.images).__str__()
+                self.text_item.setPlainText(text)
                 self.state = GrowingView.BRIGHTENING
 
         elif self.state == GrowingView.BRIGHTENING:
-            if self.pixmap.opacity() >= 1.0:
+            if self.pixmap.opacity() >= 1.0 or self.fading_speed == 0:
                 self.state = GrowingView.GROWING
             else:
-                self.pixmap.setOpacity(self.pixmap.opacity() + 0.01)
+                self.pixmap.setOpacity(self.pixmap.opacity() + self.fading_speed)
         elif self.state == GrowingView.GROWING:
             self.pixmap.setOpacity(1.0)
             next_scale = self.scale_factor + self.delta
@@ -160,12 +165,12 @@ class GrowingView(QGraphicsView):
                 self.scale_factor = 0.1
                 self.state = GrowingView.FADING
 
-        elif self.state == GrowingView.FADING:
+        elif self.state == GrowingView.FADING or self.fading_speed == 0:
             if self.pixmap.opacity() <= 0:
                 self.state = GrowingView.CHOOSE
             else:
                 self.pixmap: QGraphicsPixmapItem
-                self.pixmap.setOpacity(self.pixmap.opacity() - 0.02)
+                self.pixmap.setOpacity(self.pixmap.opacity() - self.fading_speed)
 
 
         # Keep text in upper left corner
@@ -189,19 +194,24 @@ class GrowingView(QGraphicsView):
 
 
 if __name__ == "__main__":
+    base_dir = os.path.expanduser('~/.config/thegoodone')
+    os.makedirs(base_dir, exist_ok=True)
+
     q = multiprocessing.Queue()
 
     # load config
     try:
-        with open("config.yaml", "r") as f:
+        with open(base_dir + os.sep + "config.yaml", "r") as f:
             config = yaml.safe_load(f)
     except Exception as e:
-        print(f"File config.yaml not found or corrupted")
-        config = {}
+        config = {"bot_token": None, "rate": 30, "duration": 1, "scale_delta": 0.01, "font_size": 32, "fading_speed": 0.02, "save_dir": "downloads", "authorized_users": []}
+        yaml.safe_dump(config, open(base_dir + os.sep + "config.yaml", "w"))
 
-    if config.get("BOT_TOKEN", None) is not None:
-        bot_process = multiprocessing.Process(target=run_bot, args=(q,config.pop("BOT_TOKEN"),))
+    if config.get("bot_token", None) is not None:
+        bot_process = multiprocessing.Process(target=run_bot, args=(q,config,))
         bot_process.start()
+    else:
+        print("Please set bot_token in config.yaml")
 
     app = QApplication(sys.argv)
     view = GrowingView(q, config)
